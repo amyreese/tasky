@@ -20,8 +20,8 @@ class Task(object):
         '''Initialize task state.  Be sure to call `super().__init__()` if
         you need to override this method.'''
 
-        self._task = None
-        self._tasky = None
+        self.task = None  # asyncio.Task
+        self.tasky = None  # Tasky manager
         self.running = True
 
     async def run(self) -> None:
@@ -55,7 +55,7 @@ class Task(object):
 
         Log.debug('stopping task %s', self.name)
         self.running = False
-        self._task.cancel()
+        self.task.cancel()
 
 
 class OneShotTask(Task):
@@ -94,7 +94,7 @@ class PeriodicTask(Task):
 
         loop = asyncio.get_event_loop()
 
-        while self.running and not self._task.cancelled():
+        while self.running and not self.task.cancelled():
             Log.debug('executing periodic task %s', self.name)
             before = loop.time()
             await self.run()
@@ -125,7 +125,7 @@ class TimerTask(Task):
         self.last_run = 0.0
         self.target = loop.time() + self.DELAY
 
-        while self.running and not self._task.cancelled():
+        while self.running and not self.task.cancelled():
             now = loop.time()
 
             if now < self.target:

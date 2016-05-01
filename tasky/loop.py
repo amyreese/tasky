@@ -4,6 +4,7 @@
 import asyncio
 import functools
 import logging
+import signal
 
 from typing import List
 
@@ -15,31 +16,30 @@ Log = logging.getLogger('tasky')
 class Tasky(object):
     '''Task management framework for asyncio'''
 
-    def __init__(self):
-        self.loop = asyncio.get_event_loop()
-        self.running_tasks = set()
-        self.terminate_on_finish = False
-
-    @classmethod
-    def init(cls, klass_list: List[Task]) -> 'Tasky':
+    def __init__(self, klass_list: List[Task]=None) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
         One of the following methods must be called on the resulting objects
         to start the event loop: `run_forever()`, `run_until_complete()`, or
         `run_for_time()`.'''
 
-        tasky = Tasky()
+        self.loop = asyncio.new_event_loop()
+        self.loop.add_signal_handler(signal.SIGINT, self.ctrlc)
+        asyncio.set_event_loop(self.loop)
 
-        for klass in klass_list:
-            tasky.insert(klass)
+        self.running_tasks = set()
+        self.terminate_on_finish = False
+        self.stop_attempts = 0
 
-        return tasky
+        if klass_list:
+            for klass in klass_list:
+                self.insert(klass)
 
     def insert(self, klass: Task, delay: float=0.0, *args, **kwargs) -> None:
         '''Insert the given task class into the Tasky event loop, with an
         optional delay in seconds.'''
 
         task = klass(*args, **kwargs)
-        task._tasky = self
+        task.tasky = self
 
         delay = min(0, delay)
 
@@ -60,6 +60,7 @@ class Tasky(object):
 
         Log.debug('running event loop until terminated')
         self.loop.run_forever()
+        self.loop.close()
 
     def run_until_complete(self, interval: float=2.0) -> None:
         '''Execute the tasky/asyncio event loop until all tasks finish.'''
@@ -67,6 +68,7 @@ class Tasky(object):
         Log.debug('running event loop until all tasks completed')
         self.terminate_on_finish = True
         self.loop.run_forever()
+        self.loop.close()
 
     def run_for_time(self, duration: float=10.0) -> None:
         '''Execute the tasky/asyncio event loop for `duration` seconds.'''
@@ -76,11 +78,16 @@ class Tasky(object):
 
         Log.debug('running event loop for %d seconds', duration)
         try:
-            return self.loop.run_until_complete(sleepy())
+            self.loop.run_until_complete(sleepy())
+            self.terminate()
+            self.loop.run_forever()
 
         except RuntimeError as e:
             if not e.args[0].startswith('Event loop stopped'):
                 raise
+
+        finally:
+            self.loop.close()
 
     def terminate(self, timeout: float=30.0, step: float=2.0) -> None:
         '''Stop all scheduled and/or executing tasks, first by asking nicely,
@@ -88,7 +95,8 @@ class Tasky(object):
         the asyncio event loop.'''
 
         for task in list(self.running_tasks):
-            if task._task.done():
+            if task.task.done():
+                asyncio.wait([task.task])
                 self.running_tasks.discard(task)
             else:
                 task.stop()
@@ -115,8 +123,8 @@ class Tasky(object):
 
         done_callback = functools.partial(self.finish_task, task)
 
-        task._task = self.loop.create_task(task.run_task())
-        task._task.add_done_callback(done_callback)
+        task.task = self.loop.create_task(task.run_task())
+        task.task.add_done_callback(done_callback)
 
         self.running_tasks.add(task)
 
@@ -124,9 +132,19 @@ class Tasky(object):
         '''Task has finished executing, stop tracking it.'''
 
         Log.debug('task %s completed', task.name)
+        asyncio.wait([task.task])
         self.running_tasks.discard(task)
 
         if self.terminate_on_finish:
             if not self.running_tasks:
                 Log.debug('all tasks finished, terminating')
                 self.terminate()
+
+    def ctrlc(self) -> None:
+        if self.stop_attempts < 1:
+            Log.info('stopping main loop')
+            self.stop_attempts += 1
+            self.terminate()
+        else:
+            Log.info('force stopping event loop')
+            self.loop.stop()
