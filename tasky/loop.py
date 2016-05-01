@@ -57,7 +57,7 @@ class Tasky(object):
         self.loop.run_forever()
         self.loop.close()
 
-    def run_until_complete(self, interval: float=2.0) -> None:
+    def run_until_complete(self) -> None:
         '''Execute the tasky/asyncio event loop until all tasks finish.'''
 
         Log.debug('running event loop until all tasks completed')
@@ -71,7 +71,7 @@ class Tasky(object):
         async def sleepy():
             await asyncio.sleep(duration)
 
-        Log.debug('running event loop for %d seconds', duration)
+        Log.debug('running event loop for %.1f seconds', duration)
         try:
             self.loop.run_until_complete(sleepy())
             self.terminate()
@@ -84,7 +84,7 @@ class Tasky(object):
         finally:
             self.loop.close()
 
-    def terminate(self, timeout: float=30.0, step: float=2.0) -> None:
+    def terminate(self, timeout: float=30.0, step: float=1.0) -> None:
         '''Stop all scheduled and/or executing tasks, first by asking nicely,
         and then by waiting up to `timeout` seconds before forcefully stopping
         the asyncio event loop.'''
@@ -97,7 +97,7 @@ class Tasky(object):
                 task.stop()
 
         if timeout > 0 and self.running_tasks:
-            Log.debug('waiting %d seconds for remaining tasks (%d)...',
+            Log.debug('waiting %.1f seconds for remaining tasks (%d)...',
                       timeout, len(self.running_tasks))
 
             timeout -= step

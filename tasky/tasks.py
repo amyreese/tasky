@@ -40,14 +40,14 @@ class Task(object):
         await self.run()
         after = loop.time()
         total = after - before
-        Log.debug('finished task %s in %d seconds', self.name, total)
+        Log.debug('finished task %s in %.1f seconds', self.name, total)
 
     async def sleep(self, duration: float=0.0) -> None:
         '''Simple wrapper around `asyncio.sleep()`.'''
         duration = max(0, duration)
 
         if duration > 0:
-            Log.debug('sleeping task %s for %d seconds', self.name, duration)
+            Log.debug('sleeping task %s for %.1f seconds', self.name, duration)
             await asyncio.sleep(duration)
 
     def stop(self) -> None:
@@ -103,7 +103,7 @@ class PeriodicTask(Task):
             before = loop.time()
             await self.run()
             total = loop.time() - before
-            Log.debug('finished periodic task %s in %d seconds',
+            Log.debug('finished periodic task %s in %.1f seconds',
                       self.name, total)
 
             sleep = self.INTERVAL - total
@@ -134,7 +134,7 @@ class TimerTask(Task):
 
             if now < self.target:
                 sleep = self.target - now
-                Log.debug('waiting %d seconds before executing task %s',
+                Log.debug('waiting %.1f seconds before executing task %s',
                           sleep, self.name)
                 await asyncio.sleep(sleep)
 
@@ -144,16 +144,17 @@ class TimerTask(Task):
                 self.last_run = before
                 await self.run()
                 total = loop.time() - before
-                Log.debug('finished timer task %s in %d seconds',
+                Log.debug('finished timer task %s in %.1f seconds',
                           self.name, total)
 
             else:
                 sleep = min(5.0, self.DELAY)
-                Log.debug('sleeping timer task %s for %d seconds',
+                Log.debug('sleeping timer task %s for %.1f seconds',
                           self.name, sleep)
                 await asyncio.sleep(sleep)
 
     def reset(self) -> None:
         '''Reset task execution to `DELAY` seconds from now.'''
 
+        Log.debug('resetting timer task %s')
         self.target = self.loop.time() + self.DELAY
