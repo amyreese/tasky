@@ -81,7 +81,7 @@ class OneShotTask(Task):
     async def run(self) -> None:
         '''Run the requested function with the given arguments.'''
 
-        delay = kwargs.pop('delay', 0.0)
+        delay = self.kwargs.pop('delay', 0.0)
         await self.sleep(delay)
 
         if asyncio.iscoroutinefunction(self.fn):

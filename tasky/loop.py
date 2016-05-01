@@ -47,8 +47,7 @@ class Tasky(object):
     def execute(self, fn, *args, **kwargs) -> None:
         '''Execute an arbitrary function or coroutine on the event loop.'''
 
-        task = OneShotTask(fn, *args, **kwargs)
-        self.insert(OneShotTask)
+        self.insert(OneShotTask(fn, *args, **kwargs))
 
     def run_forever(self) -> None:
         '''Execute the tasky/asyncio event loop until terminated.'''
