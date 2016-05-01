@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+# Copyright 2016 John Reese
+# Licensed under the MIT license
+
+import asyncio
+
+from tasky import Tasky, Task, PeriodicTask, TimerTask
+
+
+class HelloWorld(Task):
+    async def run(self):
+        print('Hello world!')
+
+Tasky([HelloWorld]).run_until_complete()
+
+
+class Counter(PeriodicTask):
+    INTERVAL = 1.0
+
+    value = 0
+
+    async def run(self):
+        self.value += 1
+        print(self.value)
+
+
+class Celebrate(TimerTask):
+    DELAY = 10
+
+    async def run(self):
+        print('Surprise!')
+
+
+Tasky([Counter, Celebrate]).run_for_time(10)
