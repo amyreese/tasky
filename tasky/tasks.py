@@ -46,8 +46,9 @@ class Task(object):
         '''Simple wrapper around `asyncio.sleep()`.'''
         duration = max(0, duration)
 
-        Log.debug('sleeping task %s for %d seconds', self.name, duration)
-        await asyncio.sleep(duration)
+        if duration > 0:
+            Log.debug('sleeping task %s for %d seconds', self.name, duration)
+            await asyncio.sleep(duration)
 
     def stop(self) -> None:
         '''Cancel the task if it hasn't yet started, or tell it to
@@ -74,6 +75,9 @@ class OneShotTask(Task):
 
     async def run(self) -> None:
         '''Run the requested function with the given arguments.'''
+
+        delay = kwargs.pop('delay', 0.0)
+        await self.sleep(delay)
 
         if asyncio.iscoroutinefunction(self.fn):
             await self.fn(*self.args, **self.kwargs)

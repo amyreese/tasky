@@ -16,7 +16,7 @@ Log = logging.getLogger('tasky')
 class Tasky(object):
     '''Task management framework for asyncio'''
 
-    def __init__(self, klass_list: List[Task]=None) -> None:
+    def __init__(self, task_list: List[Task]=None) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
         One of the following methods must be called on the resulting objects
         to start the event loop: `run_forever()`, `run_until_complete()`, or
@@ -30,30 +30,25 @@ class Tasky(object):
         self.terminate_on_finish = False
         self.stop_attempts = 0
 
-        if klass_list:
-            for klass in klass_list:
-                self.insert(klass)
+        if task_list:
+            for task in task_list:
+                self.insert(task)
 
-    def insert(self, klass: Task, delay: float=0.0, *args, **kwargs) -> None:
-        '''Insert the given task class into the Tasky event loop, with an
-        optional delay in seconds.'''
+    def insert(self, task: Task) -> None:
+        '''Insert the given task class into the Tasky event loop.'''
 
-        task = klass(*args, **kwargs)
+        if not isinstance(task, Task):
+            task = task()
+
         task.tasky = self
 
-        delay = min(0, delay)
+        self.loop.call_soon(self.start_task, task)
 
-        if delay > 0:
-            Log.debug('queueing task %s to start %d seconds from now',
-                      task.name, delay)
+    def execute(self, fn, *args, **kwargs) -> None:
+        '''Execute an arbitrary function or coroutine on the event loop.'''
 
-        self.loop.call_later(delay, self.start_task, task)
-
-    def execute(self, fn, delay: float=0.0, *args, **kwargs) -> None:
-        '''Execute an arbitrary function or coroutine on the Tasky event loop,
-        with an optional delay in seconds.'''
-
-        self.insert(OneShotTask, delay, fn, *args, **kwargs)
+        task = OneShotTask(fn, *args, **kwargs)
+        self.insert(OneShotTask)
 
     def run_forever(self) -> None:
         '''Execute the tasky/asyncio event loop until terminated.'''
