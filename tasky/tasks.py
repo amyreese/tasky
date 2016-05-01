@@ -16,20 +16,18 @@ class Task(object):
     def name(self):
         return self.__class__.__name__
 
+    def __init__(self) -> None:
+        '''Initialize task state.  Be sure to call `super().__init__()` if
+        you need to override this method.'''
+
+        self._task = None
+        self._tasky = None
+        self.running = True
+
     async def run(self) -> None:
         '''Override this method to define what happens when your task runs.'''
+
         await asyncio.sleep(1.0)
-
-    def start_task(self) -> None:
-        '''Initialize the task, queue it for execution, add the done callback,
-        and keep track of it for when tasks need to be stopped.'''
-
-        Log.debug('initializing task %s', self.name)
-        self.running = True
-        self._task = asyncio.get_event_loop().create_task(self.run_task())
-        self._task.add_done_callback(self.finish_task)
-        RUNNING_TASKS.add(self)
-        return self._task
 
     async def run_task(self) -> None:
         '''Execute the task inside the asyncio event loop.  Track the time it
@@ -44,11 +42,12 @@ class Task(object):
         total = after - before
         Log.debug('finished task %s in %d seconds', self.name, total)
 
-    def finish_task(self, future) -> None:
-        '''Task has finished executing, stop tracking it.'''
+    async def sleep(self, duration: float=0.0) -> None:
+        '''Simple wrapper around `asyncio.sleep()`.'''
+        duration = max(0, duration)
 
-        Log.debug('task %s stopped', self.name)
-        RUNNING_TASKS.discard(self)
+        Log.debug('sleeping task %s for %d seconds', self.name, duration)
+        await asyncio.sleep(duration)
 
     def stop(self) -> None:
         '''Cancel the task if it hasn't yet started, or tell it to
@@ -58,45 +57,28 @@ class Task(object):
         self.running = False
         self._task.cancel()
 
-    @classmethod
-    def start(cls, delay: float=0.0) -> None:
-        '''Instantiate the task object, and insert it in the asyncio event
-        loop with the given delay in seconds.'''
 
-        task = cls()
-        delay = min(0, delay)
+class OneShotTask(Task):
+    '''Run an arbitrary, coroutine or blocking function exactly once.'''
 
-        if delay > 0:
-            Log.debug('queueing task %s to start %d seconds from now',
-                      task.name, delay)
+    def __init__(self, fn, *args, **kwargs):
+        super().__init__()
 
-        asyncio.get_event_loop().call_later(delay, task.start_task)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
 
-    @classmethod
-    async def stop_all(cls, timeout: float=10.0, step: float=2.0) -> None:
-        '''Stop all scheduled and/or executing tasks, first by asking nicely,
-        and then by waiting up to `timeout` seconds before forcefully stopping
-        the asyncio event loop.'''
+    @property
+    def name(self):
+        return '{0}({1})'.format(self.__class__.__name__, self.fn.__name__)
 
-        Log.debug('stopping all tasks (%d)', len(RUNNING_TASKS))
-        for task in list(RUNNING_TASKS):
-            if task._task.done():
-                RUNNING_TASKS.discard(task)
-            else:
-                task.stop()
+    async def run(self) -> None:
+        '''Run the requested function with the given arguments.'''
 
-        while timeout and RUNNING_TASKS:
-            Log.debug('waiting %d seconds for remaining tasks (%d)...',
-                      timeout, len(RUNNING_TASKS))
-
-            for task in list(RUNNING_TASKS):
-                if task._task.done():
-                    RUNNING_TASKS.discard(task)
-
-            await asyncio.sleep(step)
-            timeout -= step
-
-        asyncio.get_event_loop().stop()
+        if asyncio.iscoroutinefunction(self.fn):
+            await self.fn(*self.args, **self.kwargs)
+        else:
+            self.fn(*self.args, **self.kwargs)
 
 
 class PeriodicTask(Task):
@@ -122,8 +104,7 @@ class PeriodicTask(Task):
 
             sleep = self.INTERVAL - total
             if sleep > 0:
-                Log.debug('sleeping task %s for %d seconds', self.name, sleep)
-                await asyncio.sleep(sleep)
+                await self.sleep(sleep)
 
 
 class TimerTask(Task):
