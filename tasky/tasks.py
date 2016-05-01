@@ -27,18 +27,16 @@ class Task(object):
     async def run(self) -> None:
         '''Override this method to define what happens when your task runs.'''
 
-        await asyncio.sleep(1.0)
+        await self.sleep(1.0)
 
     async def run_task(self) -> None:
         '''Execute the task inside the asyncio event loop.  Track the time it
         takes to run, and log when it starts/stops.'''
 
-        loop = asyncio.get_event_loop()
-
         Log.debug('executing task %s', self.name)
-        before = loop.time()
+        before = self.time()
         await self.run()
-        after = loop.time()
+        after = self.time()
         total = after - before
         Log.debug('finished task %s in %.1f seconds', self.name, total)
 
@@ -49,6 +47,13 @@ class Task(object):
         if duration > 0:
             Log.debug('sleeping task %s for %.1f seconds', self.name, duration)
             await asyncio.sleep(duration)
+
+    def time(self) -> float:
+        '''Return the current time on the asyncio event loop.'''
+
+        value = self.tasky.loop.time()
+        Log.debug('current time is %.1f', value)
+        return value
 
     def stop(self) -> None:
         '''Cancel the task if it hasn't yet started, or tell it to
@@ -96,13 +101,11 @@ class PeriodicTask(Task):
         if/once the task has finished running, run it again until `stop()`
         is called.'''
 
-        loop = asyncio.get_event_loop()
-
         while self.running and not self.task.cancelled():
             Log.debug('executing periodic task %s', self.name)
-            before = loop.time()
+            before = self.time()
             await self.run()
-            total = loop.time() - before
+            total = self.time() - before
             Log.debug('finished periodic task %s in %.1f seconds',
                       self.name, total)
 
@@ -123,38 +126,30 @@ class TimerTask(Task):
         seconds.  Track the time it takes to run, and log when it starts/stops.
         If/when `reset()` is called, reset the wait time to `DELAY` seconds.'''
 
-        loop = asyncio.get_event_loop()
-
-        self.loop = loop
         self.last_run = 0.0
-        self.target = loop.time() + self.DELAY
+        self.target = self.time() + self.DELAY
 
         while self.running and not self.task.cancelled():
-            now = loop.time()
+            now = self.time()
 
             if now < self.target:
                 sleep = self.target - now
-                Log.debug('waiting %.1f seconds before executing task %s',
-                          sleep, self.name)
-                await asyncio.sleep(sleep)
+                await self.sleep(sleep)
 
             elif self.last_run < self.target:
                 Log.debug('executing timer task %s', self.name)
-                before = loop.time()
-                self.last_run = before
+                self.last_run = self.time()
                 await self.run()
-                total = loop.time() - before
+                total = self.time() - self.last_run
                 Log.debug('finished timer task %s in %.1f seconds',
                           self.name, total)
 
             else:
                 sleep = min(5.0, self.DELAY)
-                Log.debug('sleeping timer task %s for %.1f seconds',
-                          self.name, sleep)
-                await asyncio.sleep(sleep)
+                await self.sleep(sleep)
 
     def reset(self) -> None:
         '''Reset task execution to `DELAY` seconds from now.'''
 
         Log.debug('resetting timer task %s')
-        self.target = self.loop.time() + self.DELAY
+        self.target = self.time() + self.DELAY
