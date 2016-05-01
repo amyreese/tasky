@@ -1,4 +1,4 @@
-tasky
+Tasky
 =====
 
 Python asyncio framework for task-based execution.
@@ -7,10 +7,75 @@ Python asyncio framework for task-based execution.
     :target: https://travis-ci.org/jreese/tasky
 
 
+Overview
+--------
+
+Tasky provides a framework for using Python's asyncio module to encapsulate
+execution of your program or service as a set of distinct "tasks" with a
+variety of execution styles, including "periodic" tasks, timers, and more.
+
+Tasks are defined by subclassing the appropriate type and implementing a
+``run()`` method.  Tasky runs tasks on the asyncio event loop, but also keeps
+track of which tasks are running, and can terminate automatically when all
+tasks are completed or after a predetermined amount of time.
+
+
+Usage
+-----
+
+The simplest type of task executes the ``run()`` once and then completes.
+Hello World in Tasky can be accomplished with the following code::
+
+    class HelloWorld(Task):
+        async def run(self):
+            print('Hello world!')
+
+    Tasky([HelloWorld]).run_until_complete()
+
+Note the use of ``async def``.  All tasks are coroutines, meaning they have
+full access to the asyncio event loop.
+
+Another common pattern is to execute code every X number of seconds, a
+"periodic" task similar to a cron job.  In Tasky, this is possible by
+subclassing ``PeriodicTask`` and defining your job ``INTERVAL``::
+
+    class Counter(PeriodicTask):
+        INTERVAL = 1.0
+
+        value = 0
+
+        async def run(self):
+            value += 1
+            print(self.value)
+
+    Tasky([Counter]).run_for_time(10)
+
+Note the use of ``run_for_time()``.  This will gracefully stop the Tasky
+event loop after the given number of seconds have passed.  The periodic task
+will automatically stop running, giving us the expected output of counting
+to ten.
+
+The third type of common task is a timer.  The ``run()`` method is only
+executed once after a defined delay.  If the timer is reset after execution
+completes, then the timer will be executed again.  Otherwise, resets simply
+increase the time before execution back to the originally defined delay::
+
+    class Celebrate(TimerTask):
+        DELAY = 10
+
+        async def run(self):
+            print('Surprise!')
+
+    Tasky([Counter, Celebrate]).run_for_time(10)
+
+Note that we're now starting multiple tasks as once.  The counter output from
+the previous example is accompanied by the message "Surprise!" at the end.
+
+
 Install
 -------
 
-tasky depends on syntax changes introduced in Python 3.5.
+Tasky depends on syntax changes introduced in Python 3.5.
 You can install it from PyPI with the following command::
 
     $ pip install tasky
