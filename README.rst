@@ -71,6 +71,33 @@ increase the time before execution back to the originally defined delay::
 Note that we're now starting multiple tasks as once.  The counter output from
 the previous example is accompanied by the message "Surprise!" at the end.
 
+The last major task is a queue consumer.  A shared work queue is created for
+one or more worker tasks of the same class, and the ``run()`` method is then
+called for every work item popped from the queue.  Any task can insert work
+items directly from the class definition, or call ``QueueTask.close()`` to
+signal that workers should stop once the shared work queue becomes empty::
+
+    class QueueConsumer(QueueTask):
+        WORKERS = 2
+        MAXSIZE = 5
+
+        async def run(self, item):
+            print('consumer got {}'.format(item))
+            await self.sleep(0.1)
+
+    class QueueProducer(Task):
+        async def run(self):
+            for i in range(10):
+                item = random.randint(0, 100)
+                await QueueConsumer.QUEUE.put(item)
+                print('producer put {}'.format(i))
+            QueueConsumer.close()
+
+    Tasky([QueueConsumer, QueueProducer]).run_until_complete()
+
+Note that if work items need to be reprocessed, they should be manually
+inserted back into the shared queue by the worker.
+
 
 Install
 -------

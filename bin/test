@@ -4,8 +4,13 @@
 # Licensed under the MIT license
 
 import asyncio
+import random
+import logging
+import sys
 
-from tasky import Tasky, Task, PeriodicTask, TimerTask
+from tasky import Tasky, Task, PeriodicTask, TimerTask, QueueTask
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 class HelloWorld(Task):
@@ -32,4 +37,24 @@ class Celebrate(TimerTask):
         print('Surprise!')
 
 
-Tasky([Counter, Celebrate]).run_for_time(10)
+#Tasky([Counter, Celebrate]).run_for_time(10)
+
+
+class QueueConsumer(QueueTask):
+    WORKERS = 2
+    MAXSIZE = 5
+
+    async def run(self, item):
+        print('consumer got {}'.format(item))
+        await self.sleep(0.1)
+
+
+class QueueProducer(Task):
+    async def run(self):
+        for i in range(10):
+            item = random.randint(0, 100)
+            await QueueConsumer.QUEUE.put(item)
+            print('producer put {}'.format(i))
+        QueueConsumer.close()
+
+Tasky([QueueConsumer, QueueProducer], debug=True).run_until_complete()
