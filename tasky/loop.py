@@ -16,7 +16,7 @@ Log = logging.getLogger('tasky')
 class Tasky(object):
     '''Task management framework for asyncio'''
 
-    def __init__(self, task_list: List[Task]=None) -> None:
+    def __init__(self, task_list: List[Task]=None, debug: bool=False) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
         One of the following methods must be called on the resulting objects
         to start the event loop: `run_forever()`, `run_until_complete()`, or
@@ -25,6 +25,9 @@ class Tasky(object):
         self.loop = asyncio.new_event_loop()
         self.loop.add_signal_handler(signal.SIGINT, self.ctrlc)
         asyncio.set_event_loop(self.loop)
+
+        if debug:
+            self.loop.set_debug(True)
 
         self.running_tasks = set()
         self.terminate_on_finish = False
