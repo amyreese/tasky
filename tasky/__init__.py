@@ -5,4 +5,4 @@
 from .tasks import Task, OneShotTask, PeriodicTask, TimerTask, QueueTask
 from .loop import Tasky
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
