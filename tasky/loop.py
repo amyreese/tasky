@@ -96,7 +96,7 @@ class Tasky(object):
                 asyncio.wait([task.task])
                 self.running_tasks.discard(task)
             else:
-                task.stop()
+                self.loop.create_task(task.stop())
 
         if timeout > 0 and self.running_tasks:
             Log.debug('waiting %.1f seconds for remaining tasks (%d)...',

@@ -55,7 +55,7 @@ class Task(object):
 
         return self.tasky.loop.time()
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         '''Cancel the task if it hasn't yet started, or tell it to
         gracefully stop running if it has.'''
 
