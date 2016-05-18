@@ -14,6 +14,7 @@ lint:
 	python3 -m flake8 --show-source .
 
 test:
+	python3 bin/test
 	python3 -m unittest tests
 
 clean:
