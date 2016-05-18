@@ -37,7 +37,7 @@ class Celebrate(TimerTask):
         print('Surprise!')
 
 
-#Tasky([Counter, Celebrate]).run_for_time(10)
+Tasky([Counter, Celebrate]).run_for_time(10)
 
 
 class QueueConsumer(QueueTask):
@@ -54,7 +54,7 @@ class QueueProducer(Task):
         for i in range(10):
             item = random.randint(0, 100)
             await QueueConsumer.QUEUE.put(item)
-            print('producer put {}'.format(i))
+            print('producer put {}'.format(item))
         QueueConsumer.close()
 
 Tasky([QueueConsumer, QueueProducer], debug=True).run_until_complete()
