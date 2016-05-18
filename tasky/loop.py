@@ -10,6 +10,13 @@ from typing import List
 
 from .tasks import Task, OneShotTask
 
+try:
+    # if uvlib/uvloop is available, awesome!
+    import uvloop
+
+except ImportException:
+    uvloop = None
+
 Log = logging.getLogger('tasky')
 
 
@@ -21,6 +28,10 @@ class Tasky(object):
         One of the following methods must be called on the resulting objects
         to start the event loop: `run_forever()`, `run_until_complete()`, or
         `run_for_time()`.'''
+
+        if uvloop:
+            Log.debug('using uvloop event loop')
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         self.loop = asyncio.new_event_loop()
         self.loop.add_signal_handler(signal.SIGINT, self.ctrlc)
