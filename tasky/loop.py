@@ -14,7 +14,7 @@ try:
     # if uvlib/uvloop is available, awesome!
     import uvloop
 
-except ImportException:
+except ImportError:
     uvloop = None
 
 Log = logging.getLogger('tasky')
