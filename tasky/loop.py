@@ -58,6 +58,8 @@ class Tasky(object):
 
         self.loop.call_soon(self.start_task, task)
 
+        return task
+
     def execute(self, fn, *args, **kwargs) -> None:
         '''Execute an arbitrary function or coroutine on the event loop.'''
 
