@@ -13,7 +13,7 @@ upload: README
 lint:
 	python3 -m flake8 --show-source .
 
-test:
+test: lint
 	python3 bin/test
 	python3 -m unittest tests
 
