@@ -31,13 +31,13 @@ class Counter(PeriodicTask):
 
 
 class Celebrate(TimerTask):
-    DELAY = 10
+    DELAY = 5
 
     async def run(self):
         print('Surprise!')
 
 
-Tasky([Counter, Celebrate]).run_for_time(10)
+Tasky([Counter, Celebrate]).run_for_time(Celebrate.DELAY)
 
 
 class QueueConsumer(QueueTask):
