@@ -14,10 +14,6 @@ RUNNING_TASKS = set()
 class Task(object):
     '''Run methods on the asyncio event loop and keep track of them.'''
 
-    @property
-    def name(self):
-        return self.__class__.__name__
-
     def __init__(self) -> None:
         '''Initialize task state.  Be sure to call `super().__init__()` if
         you need to override this method.'''
@@ -25,6 +21,17 @@ class Task(object):
         self.task = None  # asyncio.Task
         self.tasky = None  # Tasky manager
         self.running = True
+
+    @property
+    def name(self) -> str:
+        '''This task's name.'''
+        return self.__class__.__name__
+
+    @property
+    def config(self) -> 'Config':
+        '''Configuration object for this task.'''
+
+        return self.tasky.config.get(self.__class__.__name__)
 
     async def run(self) -> None:
         '''Override this method to define what happens when your task runs.'''

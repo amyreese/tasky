@@ -8,7 +8,10 @@ import random
 import logging
 import sys
 
-from tasky import Tasky, Task, PeriodicTask, TimerTask, QueueTask
+from tasky import (
+    Tasky, Config,
+    Task, PeriodicTask, TimerTask, QueueTask,
+)
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -58,3 +61,13 @@ class QueueProducer(Task):
         QueueConsumer.close()
 
 Tasky([QueueConsumer, QueueProducer], debug=True).run_until_complete()
+
+
+class ConfigPrinter(Task):
+    async def run(self):
+        print('task config:   {}'.format(self.config))
+        print('global config: {}'.format(self.tasky.config))
+
+Tasky([ConfigPrinter]).run_until_complete()
+config = Config({'foo': 'bar', 'ConfigPrinter': {'inner_foo': 'inner_bar'}})
+Tasky([ConfigPrinter], config=config).run_until_complete()

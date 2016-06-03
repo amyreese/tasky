@@ -8,6 +8,7 @@ import signal
 
 from typing import List
 
+from .config import Config
 from .tasks import Task, OneShotTask
 
 try:
@@ -23,7 +24,10 @@ Log = logging.getLogger('tasky')
 class Tasky(object):
     '''Task management framework for asyncio'''
 
-    def __init__(self, task_list: List[Task]=None, debug: bool=False) -> None:
+    def __init__(self,
+                 task_list: List[Task]=None,
+                 config: Config=None,
+                 debug: bool=False) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
         One of the following methods must be called on the resulting objects
         to start the event loop: `run_forever()`, `run_until_complete()`, or
@@ -44,9 +48,20 @@ class Tasky(object):
         self.terminate_on_finish = False
         self.stop_attempts = 0
 
+        if not config:
+            config = Config()
+
+        self._config = self.insert(config)
+
         if task_list:
             for task in task_list:
                 self.insert(task)
+
+    @property
+    def config(self) -> Config:
+        '''Return configuration data for the root service.'''
+
+        return self._config
 
     def insert(self, task: Task) -> None:
         '''Insert the given task class into the Tasky event loop.'''
