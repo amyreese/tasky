@@ -6,4 +6,4 @@ from .tasks import Task, OneShotTask, PeriodicTask, TimerTask, QueueTask
 from .config import Config, JsonConfig
 from .loop import Tasky
 
-__version__ = '0.4.0'
+__version__ = '0.5.0'
