@@ -23,6 +23,14 @@ class HelloWorld(Task):
 Tasky([HelloWorld]).run_until_complete()
 
 
+class ExceptionalTask(Task):
+    async def run(self):
+        raise Exception('the sky is falling!')
+
+
+Tasky([ExceptionalTask]).run_until_complete()
+
+
 class Counter(PeriodicTask):
     INTERVAL = 1.0
 
