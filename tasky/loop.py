@@ -129,13 +129,10 @@ class Tasky(object):
     def run_for_time(self, duration: float=10.0) -> None:
         '''Execute the tasky/asyncio event loop for `duration` seconds.'''
 
-        async def sleepy():
-            await asyncio.sleep(duration)
-
         Log.debug('running event loop for %.1f seconds', duration)
         try:
             asyncio.ensure_future(self.init())
-            self.loop.run_until_complete(sleepy())
+            self.loop.run_until_complete(asyncio.sleep(duration))
             self.terminate()
             self.loop.run_forever()
 
