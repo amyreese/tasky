@@ -35,8 +35,6 @@ class Config(Task):
         immediately runs the `prepare` method, sets up container emulation
         for any value in `self.data`, and returns.'''
 
-        await self.prepare()
-
         # emulate whatever read-only container methods are available
         for attr in ('__len__', '__bool__', '__iter__',
                      '__getitem__', '__contains__', 'get'):

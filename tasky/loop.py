@@ -48,10 +48,12 @@ class Tasky(object):
         self.terminate_on_finish = False
         self.stop_attempts = 0
 
+        Log.debug('initializing configuration')
         if not config:
             config = Config()
 
         self._config = self.insert(config)
+        self.loop.run_until_complete(config.prepare())
 
         if task_list:
             for task in task_list:
