@@ -29,6 +29,11 @@ class Config(Task):
 
         return self.data.get(key, default)
 
+    async def init(self) -> None:
+        '''Initialize the configuration backing.'''
+
+        await self.prepare()
+
     async def run(self) -> None:
         '''Potentially run any amount of one-shot or ongoing async code
         necessary to maintain configuration data.  Base implementation

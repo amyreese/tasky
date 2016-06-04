@@ -33,6 +33,11 @@ class Task(object):
 
         return self.tasky.config.get(self.__class__.__name__)
 
+    async def init(self) -> None:
+        '''Override this method to initialize state for your task.'''
+
+        pass
+
     async def run(self) -> None:
         '''Override this method to define what happens when your task runs.'''
 
@@ -195,6 +200,15 @@ class QueueTask(Task):
         Log.debug('closing %s work queue', cls.__name__)
         cls.OPEN = False
 
+    async def init(self) -> None:
+        if self.id == 0:
+            Log.debug('initializing %s', self.name)
+
+            for task_id in range(1, self.WORKERS):
+                task = self.__class__(id=task_id)
+                Log.debug('spawning %s', task.name)
+                await self.tasky.insert(task)
+
     async def run(self, item: Any) -> None:
         '''Override this method to define what happens when your task runs.'''
 
@@ -204,12 +218,6 @@ class QueueTask(Task):
         '''Initialize the queue and spawn extra worker tasks if this if the
         first task.  Then wait for work items to enter the task queue, and
         execute the `run()` method with the current work item.'''
-
-        if self.id == 0:
-            for task_id in range(1, self.WORKERS):
-                task = self.__class__(id=task_id)
-                Log.debug('spawning %s', task.name)
-                self.tasky.insert(task)
 
         while self.running and not self.task.cancelled():
             try:
