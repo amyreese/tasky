@@ -3,10 +3,10 @@
 # Copyright 2016 John Reese
 # Licensed under the MIT license
 
-import asyncio
 import random
 import logging
 import sys
+import time
 
 from tasky import (
     Tasky, Config,
@@ -25,8 +25,10 @@ Tasky([HelloWorld]).run_until_complete()
 
 class ExceptionalTask(Task):
     async def run(self):
+        print('sleeping...')
+        await self.execute(time.sleep, 3)
+        print('awake')
         raise Exception('the sky is falling!')
-
 
 Tasky([ExceptionalTask]).run_until_complete()
 
@@ -46,7 +48,6 @@ class Celebrate(TimerTask):
 
     async def run(self):
         print('Surprise!')
-
 
 Tasky([Counter, Celebrate]).run_for_time(Celebrate.DELAY)
 

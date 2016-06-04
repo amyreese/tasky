@@ -6,11 +6,11 @@ import functools
 import logging
 import signal
 
-from concurrent.futures import CancelledError
+from concurrent.futures import CancelledError, Executor, ThreadPoolExecutor
 from typing import Any, List
 
 from .config import Config
-from .tasks import Task, OneShotTask
+from .tasks import Task
 
 try:
     # if uvlib/uvloop is available, awesome!
@@ -28,6 +28,7 @@ class Tasky(object):
     def __init__(self,
                  task_list: List[Task]=None,
                  config: Config=None,
+                 executor: Executor=None,
                  debug: bool=False) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
         One of the following methods must be called on the resulting objects
@@ -52,6 +53,8 @@ class Tasky(object):
         self.stop_attempts = 0
 
         self.task_list = task_list
+        self.executor = executor
+
         if not config:
             config = Config()
 
@@ -77,6 +80,10 @@ class Tasky(object):
 
         await self.insert(self._config)
 
+        if not self.executor:
+            max_workers = self.config.get('executor_workers')
+            self.executor = ThreadPoolExecutor(max_workers=max_workers)
+
         if self.task_list:
             for task in self.task_list:
                 await self.insert(task)
@@ -96,9 +103,11 @@ class Tasky(object):
         return task
 
     async def execute(self, fn, *args, **kwargs) -> None:
-        '''Execute an arbitrary function or coroutine on the event loop.'''
+        '''Execute an arbitrary function outside the event loop using
+        a shared Executor.'''
 
-        await self.insert(OneShotTask(fn, *args, **kwargs))
+        fn = functools.partial(fn, *args, **kwargs)
+        return await self.loop.run_in_executor(self.executor, fn)
 
     def run_forever(self) -> None:
         '''Execute the tasky/asyncio event loop until terminated.'''

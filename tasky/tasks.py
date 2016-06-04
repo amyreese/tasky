@@ -38,6 +38,12 @@ class Task(object):
 
         pass
 
+    async def execute(self, *args, **kwargs):
+        '''Execute an arbitrary function outside the event loop using
+        a shared Executor.'''
+
+        return await self.tasky.execute(*args, **kwargs)
+
     async def run(self) -> None:
         '''Override this method to define what happens when your task runs.'''
 
