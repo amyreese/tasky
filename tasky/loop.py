@@ -6,7 +6,8 @@ import functools
 import logging
 import signal
 
-from typing import List
+from concurrent.futures import CancelledError
+from typing import Any, List
 
 from .config import Config
 from .tasks import Task, OneShotTask
@@ -39,6 +40,7 @@ class Tasky(object):
 
         self.loop = asyncio.new_event_loop()
         self.loop.add_signal_handler(signal.SIGINT, self.ctrlc)
+        #self.loop.set_exception_handler(self.exception)
         asyncio.set_event_loop(self.loop)
 
         if debug:
@@ -49,17 +51,11 @@ class Tasky(object):
         self.terminate_on_finish = False
         self.stop_attempts = 0
 
-        Log.debug('initializing configuration')
+        self.task_list = task_list
         if not config:
             config = Config()
 
-        self._config = self.insert(config)
-        self.loop.run_until_complete(config.prepare())
-
-        Log.debug('initializing tasks')
-        if task_list:
-            for task in task_list:
-                self.insert(task)
+        self._config = config
 
     @property
     def config(self) -> Config:
@@ -67,27 +63,48 @@ class Tasky(object):
 
         return self._config
 
-    def insert(self, task: Task) -> None:
+    def task(self, name_or_class: Any) -> Task:
+        '''Return a running Task object matching the requested name or class.'''
+
+        for task in self.running_tasks:
+            if task.name == name_or_class or task.__class__ == name_or_class:
+                return task
+
+        return None
+
+    async def init(self) -> None:
+        '''Initialize configuration and start tasks.'''
+
+        await self.insert(self._config)
+
+        if self.task_list:
+            for task in self.task_list:
+                await self.insert(task)
+
+    async def insert(self, task: Task) -> None:
         '''Insert the given task class into the Tasky event loop.'''
 
         if not isinstance(task, Task):
             task = task()
 
         task.tasky = self
+        await task.init()
 
-        self.loop.call_soon(self.start_task, task)
+        task.task = asyncio.ensure_future(self.start_task(task))
+        self.running_tasks.add(task)
 
         return task
 
-    def execute(self, fn, *args, **kwargs) -> None:
+    async def execute(self, fn, *args, **kwargs) -> None:
         '''Execute an arbitrary function or coroutine on the event loop.'''
 
-        self.insert(OneShotTask(fn, *args, **kwargs))
+        await self.insert(OneShotTask(fn, *args, **kwargs))
 
     def run_forever(self) -> None:
         '''Execute the tasky/asyncio event loop until terminated.'''
 
         Log.debug('running event loop until terminated')
+        asyncio.ensure_future(self.init())
         self.loop.run_forever()
         self.loop.close()
 
@@ -96,6 +113,7 @@ class Tasky(object):
 
         Log.debug('running event loop until all tasks completed')
         self.terminate_on_finish = True
+        asyncio.ensure_future(self.init())
         self.loop.run_forever()
         self.loop.close()
 
@@ -107,6 +125,7 @@ class Tasky(object):
 
         Log.debug('running event loop for %.1f seconds', duration)
         try:
+            asyncio.ensure_future(self.init())
             self.loop.run_until_complete(sleepy())
             self.terminate()
             self.loop.run_forever()
@@ -123,12 +142,14 @@ class Tasky(object):
         and then by waiting up to `timeout` seconds before forcefully stopping
         the asyncio event loop.'''
 
+        Log.debug('stopping tasks')
         for task in list(self.running_tasks):
             if task.task.done():
-                asyncio.wait([task.task])
+                Log.debug('task %s already stopped', task.name)
                 self.running_tasks.discard(task)
             else:
-                self.loop.create_task(task.stop())
+                Log.debug('asking %s to stop', task.name)
+                asyncio.ensure_future(task.stop())
 
         if timeout > 0 and self.running_tasks:
             Log.debug('waiting %.1f seconds for remaining tasks (%d)...',
@@ -144,32 +165,39 @@ class Tasky(object):
 
         self.loop.stop()
 
-    def start_task(self, task: Task) -> None:
+    async def start_task(self, task: Task) -> None:
         '''Initialize the task, queue it for execution, add the done callback,
         and keep track of it for when tasks need to be stopped.'''
 
-        Log.debug('initializing task %s', task.name)
+        try:
+            Log.debug('task %s starting', task.name)
+            self.running_tasks.add(task)
+            await task.run_task()
+            Log.debug('task %s completed', task.name)
 
-        done_callback = functools.partial(self.finish_task, task)
+        except CancelledError:
+            Log.debug('task %s cancelled', task.name)
 
-        task.task = self.loop.create_task(task.run_task())
-        task.task.add_done_callback(done_callback)
+        except Exception:
+            Log.exception('unhandled exception in task %s', task.name)
 
-        self.running_tasks.add(task)
-
-    def finish_task(self, task: Task, future: asyncio.Future) -> None:
-        '''Task has finished executing, stop tracking it.'''
-
-        Log.debug('task %s completed', task.name)
-        asyncio.wait([task.task])
-        self.running_tasks.discard(task)
+        finally:
+            self.running_tasks.discard(task)
 
         if self.terminate_on_finish:
             if not self.running_tasks:
                 Log.debug('all tasks finished, terminating')
                 self.terminate()
 
+    def exception(self, loop: asyncio.BaseEventLoop, context: dict) -> None:
+        '''Log unhandled exceptions from anywhere in the event loop.'''
+
+        Log.error('unhandled exception: %s', context['exception'])
+
     def ctrlc(self) -> None:
+        '''Handle the user pressing Ctrl-C by stopping tasks nicely at first,
+        then forcibly upon further presses.'''
+
         if self.stop_attempts < 1:
             Log.info('stopping main loop')
             self.stop_attempts += 1
