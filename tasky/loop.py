@@ -5,6 +5,7 @@ import asyncio
 import functools
 import logging
 import signal
+import time
 
 from concurrent.futures import CancelledError, Executor, ThreadPoolExecutor
 from typing import Any, List
@@ -100,6 +101,8 @@ class Tasky(object):
             for task in self.task_list:
                 await self.insert(task)
 
+        self.counters['alive_since'] = time.time()
+
     async def insert(self, task: Task) -> None:
         '''Insert the given task class into the Tasky event loop.'''
 
@@ -176,11 +179,6 @@ class Tasky(object):
             timeout -= step
             return self.loop.call_later(step, self.terminate, timeout, step)
 
-        if self.stats:
-            Log.debug('dumping stats:')
-            for key, value in self.stats.dump().items():
-                Log.debug('  %16s: %d', key, value)
-
         if timeout > 0:
             Log.debug('all tasks completed, stopping event loop')
         else:
@@ -194,6 +192,9 @@ class Tasky(object):
 
         try:
             Log.debug('task %s starting', task.name)
+            before = time.time()
+            task.counters['last_run'] = before
+
             self.running_tasks.add(task)
             await task.run_task()
             Log.debug('task %s completed', task.name)
@@ -206,6 +207,11 @@ class Tasky(object):
 
         finally:
             self.running_tasks.discard(task)
+
+            after = time.time()
+            total = after - before
+            task.counters['last_completed'] = after
+            task.counters['duration'] = total
 
         if self.terminate_on_finish:
             if not self.running_tasks:
