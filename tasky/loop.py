@@ -11,6 +11,7 @@ from typing import Any, List
 
 from .config import Config
 from .tasks import Task
+from .stats import Stats, DictWrapper
 
 try:
     # if uvlib/uvloop is available, awesome!
@@ -28,6 +29,7 @@ class Tasky(object):
     def __init__(self,
                  task_list: List[Task]=None,
                  config: Config=None,
+                 stats: Stats=None,
                  executor: Executor=None,
                  debug: bool=False) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
@@ -55,9 +57,12 @@ class Tasky(object):
         self.task_list = task_list
         self.executor = executor
 
+        if not stats:
+            stats = Stats()
+        self.stats = stats
+
         if not config:
             config = Config()
-
         self._config = config
 
     @property
@@ -65,6 +70,12 @@ class Tasky(object):
         '''Return configuration data for the root service.'''
 
         return self._config
+
+    @property
+    def counters(self) -> DictWrapper:
+        '''Dict-like structure for tracking global stats.'''
+
+        return self.stats.global_counter()
 
     def task(self, name_or_class: Any) -> Task:
         '''Return a running Task object matching the given name or class.'''
@@ -78,7 +89,8 @@ class Tasky(object):
     async def init(self) -> None:
         '''Initialize configuration and start tasks.'''
 
-        await self.insert(self._config)
+        self._config = await self.insert(self._config)
+        self.stats = await self.insert(self.stats)
 
         if not self.executor:
             max_workers = self.config.get('executor_workers')
@@ -163,6 +175,11 @@ class Tasky(object):
 
             timeout -= step
             return self.loop.call_later(step, self.terminate, timeout, step)
+
+        if self.stats:
+            Log.debug('dumping stats:')
+            for key, value in self.stats.dump().items():
+                Log.debug('  %16s: %d', key, value)
 
         if timeout > 0:
             Log.debug('all tasks completed, stopping event loop')

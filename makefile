@@ -14,8 +14,8 @@ lint:
 	python3 -m flake8 --show-source .
 
 test: lint
-	python3 bin/test
 	python3 -m unittest tests
+	python3 bin/test
 
 clean:
 	rm -rf build dist README MANIFEST tasky.egg-info

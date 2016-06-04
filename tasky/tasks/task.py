@@ -29,6 +29,11 @@ class Task(object):
 
         return self.tasky.config.get(self.__class__.__name__)
 
+    @property
+    def counters(self) -> 'Stats':
+
+        return self.tasky.stats.task_counter(self)
+
     async def init(self) -> None:
         '''Override this method to initialize state for your task.'''
 
