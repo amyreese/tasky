@@ -40,7 +40,7 @@ class Tasky(object):
 
         self.loop = asyncio.new_event_loop()
         self.loop.add_signal_handler(signal.SIGINT, self.ctrlc)
-        #self.loop.set_exception_handler(self.exception)
+        self.loop.set_exception_handler(self.exception)
         asyncio.set_event_loop(self.loop)
 
         if debug:
@@ -64,7 +64,7 @@ class Tasky(object):
         return self._config
 
     def task(self, name_or_class: Any) -> Task:
-        '''Return a running Task object matching the requested name or class.'''
+        '''Return a running Task object matching the given name or class.'''
 
         for task in self.running_tasks:
             if task.name == name_or_class or task.__class__ == name_or_class:
