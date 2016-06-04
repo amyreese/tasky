@@ -16,5 +16,5 @@ setup(name='tasky',
                    'Development Status :: 4 - Beta',
                    ],
       license='MIT License',
-      packages=['tasky'],
+      packages=['tasky', 'tasky.tasks'],
       )

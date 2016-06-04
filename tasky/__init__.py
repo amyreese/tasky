@@ -2,7 +2,7 @@
 # Licensed under the MIT license
 # flake8: noqa
 
-from .tasks import Task, OneShotTask, PeriodicTask, TimerTask, QueueTask
+from .tasks import Task, PeriodicTask, TimerTask, QueueTask
 from .config import Config, JsonConfig
 from .loop import Tasky
 
