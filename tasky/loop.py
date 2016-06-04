@@ -42,6 +42,7 @@ class Tasky(object):
         asyncio.set_event_loop(self.loop)
 
         if debug:
+            Log.debug('enabling asyncio debug mode')
             self.loop.set_debug(True)
 
         self.running_tasks = set()
@@ -55,6 +56,7 @@ class Tasky(object):
         self._config = self.insert(config)
         self.loop.run_until_complete(config.prepare())
 
+        Log.debug('initializing tasks')
         if task_list:
             for task in task_list:
                 self.insert(task)
