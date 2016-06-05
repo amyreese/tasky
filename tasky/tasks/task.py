@@ -25,9 +25,15 @@ class Task(object):
 
     @property
     def config(self) -> 'Config':
-        '''Configuration object for this task.'''
+        '''Task-specific configuration data.'''
 
-        return self.tasky.config.get(self.__class__.__name__)
+        return self.tasky.configuration.task_config(self)
+
+    @property
+    def global_config(self) -> 'Config':
+        '''Global configuration data.'''
+
+        return self.tasky.configuration.global_config()
 
     @property
     def counters(self) -> 'Stats':

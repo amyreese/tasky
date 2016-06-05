@@ -64,13 +64,13 @@ class Tasky(object):
 
         if not config:
             config = Config()
-        self._config = config
+        self.configuration = config
 
     @property
     def config(self) -> Config:
         '''Return configuration data for the root service.'''
 
-        return self._config
+        return self.configuration.global_config()
 
     @property
     def counters(self) -> DictWrapper:
@@ -90,7 +90,7 @@ class Tasky(object):
     async def init(self) -> None:
         '''Initialize configuration and start tasks.'''
 
-        self._config = await self.insert(self._config)
+        self.configuration = await self.insert(self.configuration)
         self.stats = await self.insert(self.stats)
 
         if not self.executor:

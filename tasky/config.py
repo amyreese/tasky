@@ -29,6 +29,16 @@ class Config(Task):
 
         return self.data.get(key, default)
 
+    def global_config(self) -> Any:
+        '''Return the global service configuration.'''
+
+        return self.data
+
+    def task_config(self, task: Task) -> Any:
+        '''Return the task-specific configuration.'''
+
+        return self.get(task.__class__.__name__)
+
     async def init(self) -> None:
         '''Initialize the configuration backing.'''
 
