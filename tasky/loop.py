@@ -90,8 +90,8 @@ class Tasky(object):
     async def init(self) -> None:
         '''Initialize configuration and start tasks.'''
 
-        self.configuration = await self.insert(self.configuration)
         self.stats = await self.insert(self.stats)
+        self.configuration = await self.insert(self.configuration)
 
         if not self.executor:
             max_workers = self.config.get('executor_workers')
