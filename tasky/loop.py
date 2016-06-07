@@ -225,7 +225,9 @@ class Tasky(object):
     def exception(self, loop: asyncio.BaseEventLoop, context: dict) -> None:
         '''Log unhandled exceptions from anywhere in the event loop.'''
 
-        Log.error('unhandled exception: %s', context['exception'])
+        Log.error('unhandled exception: %s', context['message'])
+        if 'exception' in context:
+            Log.error('  %s', context['exception'])
 
     def ctrlc(self) -> None:
         '''Handle the user pressing Ctrl-C by stopping tasks nicely at first,
