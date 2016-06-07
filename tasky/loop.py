@@ -94,7 +94,11 @@ class Tasky(object):
         self.configuration = await self.insert(self.configuration)
 
         if not self.executor:
-            max_workers = self.config.get('executor_workers')
+            try:
+                max_workers = self.config.get('executor_workers')
+            except Exception:
+                max_workers = None
+
             self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
         if self.task_list:
