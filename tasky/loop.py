@@ -29,9 +29,10 @@ class Tasky(object):
 
     def __init__(self,
                  task_list: List[Task]=None,
-                 config: Config=None,
-                 stats: Stats=None,
+                 config: Config=Config,
+                 stats: Stats=Stats,
                  executor: Executor=None,
+                 monitor: bool=True,
                  debug: bool=False) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
         One of the following methods must be called on the resulting objects
@@ -52,23 +53,20 @@ class Tasky(object):
             Log.debug('enabling asyncio debug mode')
             self.loop.set_debug(True)
 
+        self.all_tasks = {}
         self.running_tasks = set()
+        self.initial_tasks = list(task_list)
+
+        self.configuration = config
+        self.stats = stats
+        self.executor = executor
+
+        self.monitor = monitor
         self.terminate_on_finish = False
         self.stop_attempts = 0
 
-        self.task_list = task_list
-        self.executor = executor
-
-        if not stats:
-            stats = Stats()
-        self.stats = stats
-
-        if not config:
-            config = Config()
-        self.configuration = config
-
     @property
-    def config(self) -> Config:
+    def config(self) -> Any:
         '''Return configuration data for the root service.'''
 
         return self.configuration.global_config()
@@ -82,11 +80,14 @@ class Tasky(object):
     def task(self, name_or_class: Any) -> Task:
         '''Return a running Task object matching the given name or class.'''
 
-        for task in self.running_tasks:
-            if task.name == name_or_class or task.__class__ == name_or_class:
-                return task
+        if name_or_class in self.all_tasks:
+            return self.all_tasks[name_or_class]
 
-        return None
+        try:
+            return self.all_tasks.get(name_or_class.__class__.__name__, None)
+
+        except AttributeError:
+            return None
 
     async def init(self) -> None:
         '''Initialize configuration and start tasks.'''
@@ -102,9 +103,11 @@ class Tasky(object):
 
             self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
-        if self.task_list:
-            for task in self.task_list:
-                await self.insert(task)
+        for task in self.initial_tasks:
+            await self.insert(task)
+
+        if self.monitor:
+            self.monitor = asyncio.ensure_future(self.monitor_tasks())
 
         self.counters['alive_since'] = time.time()
 
@@ -114,8 +117,14 @@ class Tasky(object):
         if not isinstance(task, Task):
             task = task()
 
-        task.tasky = self
-        await task.init()
+        if task.name not in self.all_tasks:
+            task.tasky = self
+            self.all_tasks[task.name] = task
+
+            await task.init()
+
+        elif task != self.all_tasks[task.name]:
+            raise Exception('Duplicate task %s' % task.name)
 
         task.task = asyncio.ensure_future(self.start_task(task))
         self.running_tasks.add(task)
@@ -141,6 +150,7 @@ class Tasky(object):
         '''Execute the tasky/asyncio event loop until all tasks finish.'''
 
         Log.debug('running event loop until all tasks completed')
+        self.monitor = False
         self.terminate_on_finish = True
         asyncio.ensure_future(self.init())
         self.loop.run_forever()
@@ -167,6 +177,9 @@ class Tasky(object):
         '''Stop all scheduled and/or executing tasks, first by asking nicely,
         and then by waiting up to `timeout` seconds before forcefully stopping
         the asyncio event loop.'''
+
+        if isinstance(self.monitor, asyncio.Future):
+            self.monitor.cancel()
 
         Log.debug('stopping tasks')
         for task in list(self.running_tasks):
@@ -218,10 +231,37 @@ class Tasky(object):
             task.counters['last_completed'] = after
             task.counters['duration'] = total
 
-        if self.terminate_on_finish:
-            if not self.running_tasks:
-                Log.debug('all tasks finished, terminating')
-                self.terminate()
+        if self.terminate_on_finish and not self.running_tasks:
+            Log.debug('all tasks finished, terminating')
+            self.terminate()
+
+    async def monitor_tasks(self, interval: float=10.0) -> None:
+        '''Monitor all known tasks for run state.  Ensure that enabled tasks
+        are running, and that disabled tasks are stopped.  Should not be used
+        with Tasky.run_until_complete().'''
+
+        Log.debug('monitor running')
+        while True:
+            try:
+                for name, task in self.all_tasks.items():
+                    if task.enabled:
+                        if task not in self.running_tasks:
+                            Log.debug('task %s enabled, restarting', task.name)
+                            await self.insert(task)
+
+                    else:
+                        if task in self.running_tasks:
+                            Log.debug('task %s disabled, stopping', task.name)
+                            await task.stop()
+
+                await asyncio.sleep(interval)
+
+            except CancelledError:
+                Log.debug('monitor cancelled')
+                return
+
+            except Exception:
+                Log.exception('monitoring exception')
 
     def exception(self, loop: asyncio.BaseEventLoop, context: dict) -> None:
         '''Log unhandled exceptions from anywhere in the event loop.'''

@@ -24,6 +24,12 @@ class Task(object):
         return self.__class__.__name__
 
     @property
+    def enabled(self) -> bool:
+        '''Return true if this task is enabled and should be running.'''
+
+        return True
+
+    @property
     def config(self) -> 'Config':
         '''Task-specific configuration data.'''
 
