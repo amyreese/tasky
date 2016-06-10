@@ -16,6 +16,8 @@ class DictWrapper(object):
     data structure.'''
 
     def __init__(self, data: dict, prefix: str='') -> None:
+        super().__init__()
+
         assert isinstance(data, dict)
 
         self.data = data

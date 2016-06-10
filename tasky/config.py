@@ -18,6 +18,8 @@ class Config(Task):
     a static dictionary, and emulates a read-only container interface.'''
 
     def __init__(self, data: dict=None) -> None:
+        super().__init__()
+
         if not data:
             data = {}
 
