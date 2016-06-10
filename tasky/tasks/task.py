@@ -16,7 +16,7 @@ class Task(object):
 
         self.task = None  # asyncio.Task
         self.tasky = None  # Tasky manager
-        self.running = True
+        self.running = False
 
     @property
     def name(self) -> str:

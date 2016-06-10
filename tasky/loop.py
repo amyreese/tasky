@@ -219,6 +219,7 @@ class Tasky(object):
             before = time.time()
             task.counters['last_run'] = before
 
+            task.running = True
             self.running_tasks.add(task)
             await task.run_task()
             Log.debug('task %s completed', task.name)
@@ -231,6 +232,7 @@ class Tasky(object):
 
         finally:
             self.running_tasks.discard(task)
+            task.running = False
             task.task = None
 
             after = time.time()
