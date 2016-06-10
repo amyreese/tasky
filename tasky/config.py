@@ -4,7 +4,7 @@
 import json
 import logging
 
-from typing import Any, List
+from typing import Any
 
 from .tasks import Task
 
@@ -40,26 +40,13 @@ class Config(Task):
         return self.get(task.__class__.__name__)
 
     async def init(self) -> None:
-        '''Initialize the configuration backing.'''
+        '''Gather initial configuration data from the backing.'''
 
-        await self.prepare()
+        pass
 
     async def run(self) -> None:
         '''Potentially run any amount of one-shot or ongoing async code
-        necessary to maintain configuration data.  Base implementation
-        immediately runs the `prepare` method, sets up container emulation
-        for any value in `self.data`, and returns.'''
-
-        # emulate whatever read-only container methods are available
-        for attr in ('__len__', '__bool__', '__iter__',
-                     '__getitem__', '__contains__', 'get'):
-            if hasattr(self.data, attr):
-                self.__dict__[attr] = getattr(self.data, attr)
-
-    async def prepare(self, keys: List[Any]=None) -> None:
-        '''Gather configuration data from the backing.  If `keys` given, the
-        backing may choose to either limit updates to the requested key names
-        or to load all configuration values at once.'''
+        necessary to maintain configuration data.'''
 
         pass
 
@@ -75,7 +62,12 @@ class JsonConfig(Config):
         self.json_data = json_data
         self.data = None
 
-    async def prepare(self, keys: List[str]=None) -> None:
+    @property
+    def enabled(self) -> bool:
+        '''Enabled until data is fetched, then disabled.'''
+        return self.data is None
+
+    async def init(self) -> None:
         '''Load configuration in JSON format from either a file or
         a raw data string.'''
 
