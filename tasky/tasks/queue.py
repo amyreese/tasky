@@ -4,6 +4,7 @@
 import asyncio
 import logging
 
+from concurrent.futures import CancelledError
 from typing import Any
 
 from .task import Task
@@ -63,7 +64,7 @@ class QueueTask(Task):
         first task.  Then wait for work items to enter the task queue, and
         execute the `run()` method with the current work item.'''
 
-        while self.running and not self.task.cancelled():
+        while self.running:
             try:
                 item = self.QUEUE.get_nowait()
 
@@ -81,6 +82,11 @@ class QueueTask(Task):
                     Log.debug('%s queue closed and empty, stopping', self.name)
                     return
 
-            except:
+            except CancelledError:
+                Log.debug('%s cancelled, dropping work item')
+                self.QUEUE.task_done()
+                raise
+
+            except Exception:
                 Log.exception('%s failed work item', self.name)
                 self.QUEUE.task_done()

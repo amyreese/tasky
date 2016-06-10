@@ -3,6 +3,8 @@
 
 import logging
 
+from concurrent.futures import CancelledError
+
 from .task import Task
 
 Log = logging.getLogger('tasky.tasks')
@@ -19,14 +21,22 @@ class PeriodicTask(Task):
         if/once the task has finished running, run it again until `stop()`
         is called.'''
 
-        while self.running and not self.task.cancelled():
-            Log.debug('executing periodic task %s', self.name)
-            before = self.time()
-            await self.run()
-            total = self.time() - before
-            Log.debug('finished periodic task %s in %.1f seconds',
-                      self.name, total)
+        while self.running:
+            try:
+                Log.debug('executing periodic task %s', self.name)
+                before = self.time()
+                await self.run()
+                total = self.time() - before
+                Log.debug('finished periodic task %s in %.1f seconds',
+                          self.name, total)
 
-            sleep = self.INTERVAL - total
-            if sleep > 0:
-                await self.sleep(sleep)
+                sleep = self.INTERVAL - total
+                if sleep > 0:
+                    await self.sleep(sleep)
+
+            except CancelledError:
+                Log.debug('cancelled periodic task %s', self.name)
+                raise
+
+            except Exception:
+                Log.exception('exception in periodic task %s', self.name)

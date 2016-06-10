@@ -42,7 +42,7 @@ class Task(object):
         return self.tasky.configuration.global_config()
 
     @property
-    def counters(self) -> 'Stats':
+    def counters(self) -> 'DictWrapper':
 
         return self.tasky.stats.task_counter(self)
 
@@ -60,18 +60,13 @@ class Task(object):
     async def run(self) -> None:
         '''Override this method to define what happens when your task runs.'''
 
-        await self.sleep(1.0)
+        pass
 
     async def run_task(self) -> None:
         '''Execute the task inside the asyncio event loop.  Track the time it
         takes to run, and log when it starts/stops.'''
 
-        Log.debug('executing task %s', self.name)
-        before = self.time()
         await self.run()
-        after = self.time()
-        total = after - before
-        Log.debug('finished task %s in %.1f seconds', self.name, total)
 
     async def sleep(self, duration: float=0.0) -> None:
         '''Simple wrapper around `asyncio.sleep()`.'''

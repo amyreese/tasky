@@ -3,6 +3,8 @@
 
 import logging
 
+from concurrent.futures import CancelledError
+
 from .task import Task
 
 Log = logging.getLogger('tasky.tasks')
@@ -23,24 +25,32 @@ class TimerTask(Task):
         self.last_run = 0.0
         self.target = self.time() + self.DELAY
 
-        while self.running and not self.task.cancelled():
-            now = self.time()
+        while self.running:
+            try:
+                now = self.time()
 
-            if now < self.target:
-                sleep = self.target - now
-                await self.sleep(sleep)
+                if now < self.target:
+                    sleep = self.target - now
+                    await self.sleep(sleep)
 
-            elif self.last_run < self.target:
-                Log.debug('executing timer task %s', self.name)
-                self.last_run = self.time()
-                await self.run()
-                total = self.time() - self.last_run
-                Log.debug('finished timer task %s in %.1f seconds',
-                          self.name, total)
+                elif self.last_run < self.target:
+                    Log.debug('executing timer task %s', self.name)
+                    self.last_run = self.time()
+                    await self.run()
+                    total = self.time() - self.last_run
+                    Log.debug('finished timer task %s in %.1f seconds',
+                              self.name, total)
 
-            else:
-                sleep = min(5.0, self.DELAY)
-                await self.sleep(sleep)
+                else:
+                    sleep = min(5.0, self.DELAY)
+                    await self.sleep(sleep)
+
+            except CancelledError:
+                Log.debug('cancelled timer task %s', self.name)
+                raise
+
+            except Exception:
+                Log.exception('exception in timer task %s', self.name)
 
     def reset(self) -> None:
         '''Reset task execution to `DELAY` seconds from now.'''
