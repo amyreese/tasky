@@ -173,7 +173,8 @@ class Tasky(object):
         finally:
             self.loop.close()
 
-    def terminate(self, timeout: float=30.0, step: float=1.0) -> None:
+    def terminate(self, *, force: bool=False, timeout: float=30.0,
+                  step: float=1.0) -> None:
         '''Stop all scheduled and/or executing tasks, first by asking nicely,
         and then by waiting up to `timeout` seconds before forcefully stopping
         the asyncio event loop.'''
@@ -188,14 +189,16 @@ class Tasky(object):
                 self.running_tasks.discard(task)
             else:
                 Log.debug('asking %s to stop', task.name)
-                asyncio.ensure_future(task.stop())
+                asyncio.ensure_future(task.stop(force=force))
 
         if timeout > 0 and self.running_tasks:
             Log.debug('waiting %.1f seconds for remaining tasks (%d)...',
                       timeout, len(self.running_tasks))
 
             timeout -= step
-            return self.loop.call_later(step, self.terminate, timeout, step)
+            fn = functools.partial(self.terminate, force=force,
+                                   timeout=timeout, step=step)
+            return self.loop.call_later(step, fn)
 
         if timeout > 0:
             Log.debug('all tasks completed, stopping event loop')
@@ -275,11 +278,17 @@ class Tasky(object):
         then forcibly upon further presses.'''
 
         if self.stop_attempts < 1:
-            Log.info('stopping main loop')
+            Log.info('gracefully stopping tasks')
             self.stop_attempts += 1
             self.terminate()
+
+        elif self.stop_attempts < 2:
+            Log.info('forcefully cancelling tasks')
+            self.stop_attempts += 1
+            self.terminate(force=True)
+
         else:
-            Log.info('force stopping event loop')
+            Log.info('forcefully stopping event loop')
             self.loop.stop()
 
     def sigterm(self) -> None:
@@ -290,5 +299,6 @@ class Tasky(object):
             Log.info('received SIGTERM, gracefully stopping tasks')
             self.stop_attempts += 1
             self.terminate()
+
         else:
             Log.info('received SIGTERM, bravely waiting for tasks')
