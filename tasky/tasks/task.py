@@ -86,10 +86,12 @@ class Task(object):
 
         return self.tasky.loop.time()
 
-    async def stop(self) -> None:
+    async def stop(self, force: bool=False) -> None:
         '''Cancel the task if it hasn't yet started, or tell it to
         gracefully stop running if it has.'''
 
         Log.debug('stopping task %s', self.name)
         self.running = False
-        self.task.cancel()
+
+        if force:
+            self.task.cancel()
