@@ -43,7 +43,8 @@ class Tasky(object):
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         self.loop = asyncio.new_event_loop()
-        self.loop.add_signal_handler(signal.SIGINT, self.ctrlc)
+        self.loop.add_signal_handler(signal.SIGINT, self.sigint)
+        self.loop.add_signal_handler(signal.SIGTERM, self.sigterm)
         self.loop.set_exception_handler(self.exception)
         asyncio.set_event_loop(self.loop)
 
@@ -229,7 +230,7 @@ class Tasky(object):
         if 'exception' in context:
             Log.error('  %s', context['exception'])
 
-    def ctrlc(self) -> None:
+    def sigint(self) -> None:
         '''Handle the user pressing Ctrl-C by stopping tasks nicely at first,
         then forcibly upon further presses.'''
 
@@ -240,3 +241,14 @@ class Tasky(object):
         else:
             Log.info('force stopping event loop')
             self.loop.stop()
+
+    def sigterm(self) -> None:
+        '''Handle SIGTERM from the system by stopping tasks gracefully.
+        Repeated signals will be ignored while waiting for tasks to finish.'''
+
+        if self.stop_attempts < 1:
+            Log.info('received SIGTERM, gracefully stopping tasks')
+            self.stop_attempts += 1
+            self.terminate()
+        else:
+            Log.info('received SIGTERM, bravely waiting for tasks')
