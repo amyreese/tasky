@@ -246,6 +246,8 @@ class Tasky(object):
         Log.debug('monitor running')
         while True:
             try:
+                await asyncio.sleep(interval)
+
                 for name, task in self.all_tasks.items():
                     if task.enabled:
                         if task not in self.running_tasks:
@@ -256,8 +258,6 @@ class Tasky(object):
                         if task in self.running_tasks:
                             Log.debug('task %s disabled, stopping', task.name)
                             await task.stop()
-
-                await asyncio.sleep(interval)
 
             except CancelledError:
                 Log.debug('monitor cancelled')
