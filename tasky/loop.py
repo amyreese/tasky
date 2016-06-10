@@ -126,8 +126,11 @@ class Tasky(object):
         elif task != self.all_tasks[task.name]:
             raise Exception('Duplicate task %s' % task.name)
 
-        task.task = asyncio.ensure_future(self.start_task(task))
-        self.running_tasks.add(task)
+        if task.enabled:
+            task.task = asyncio.ensure_future(self.start_task(task))
+            self.running_tasks.add(task)
+        else:
+            task.task = None
 
         return task
 
@@ -228,6 +231,7 @@ class Tasky(object):
 
         finally:
             self.running_tasks.discard(task)
+            task.task = None
 
             after = time.time()
             total = after - before
