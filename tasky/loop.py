@@ -32,7 +32,6 @@ class Tasky(object):
                  config: Config=Config,
                  stats: Stats=Stats,
                  executor: Executor=None,
-                 monitor: bool=True,
                  debug: bool=False) -> None:
         '''Initialize Tasky and automatically start a list of tasks.
         One of the following methods must be called on the resulting objects
@@ -61,7 +60,6 @@ class Tasky(object):
         self.stats = stats
         self.executor = executor
 
-        self.monitor = monitor
         self.terminate_on_finish = False
         self.stop_attempts = 0
 
@@ -106,9 +104,7 @@ class Tasky(object):
         for task in self.initial_tasks:
             await self.insert(task)
 
-        if self.monitor:
-            self.monitor = asyncio.ensure_future(self.monitor_tasks())
-
+        self.monitor = asyncio.ensure_future(self.monitor_tasks())
         self.counters['alive_since'] = time.time()
 
     async def insert(self, task: Task) -> None:
@@ -153,7 +149,6 @@ class Tasky(object):
         '''Execute the tasky/asyncio event loop until all tasks finish.'''
 
         Log.debug('running event loop until all tasks completed')
-        self.monitor = False
         self.terminate_on_finish = True
         asyncio.ensure_future(self.init())
         self.loop.run_forever()
@@ -183,6 +178,7 @@ class Tasky(object):
         the asyncio event loop.'''
 
         if isinstance(self.monitor, asyncio.Future):
+            Log.debug('cancelling task monitor')
             self.monitor.cancel()
 
         Log.debug('stopping tasks')
@@ -194,7 +190,7 @@ class Tasky(object):
                 Log.debug('asking %s to stop', task.name)
                 asyncio.ensure_future(task.stop(force=force))
 
-        if timeout > 0 and self.running_tasks:
+        if timeout > 0 and (self.monitor or self.running_tasks):
             Log.debug('waiting %.1f seconds for remaining tasks (%d)...',
                       timeout, len(self.running_tasks))
 
@@ -240,14 +236,9 @@ class Tasky(object):
             task.counters['last_completed'] = after
             task.counters['duration'] = total
 
-        if self.terminate_on_finish and not self.running_tasks:
-            Log.debug('all tasks finished, terminating')
-            self.terminate()
-
-    async def monitor_tasks(self, interval: float=10.0) -> None:
+    async def monitor_tasks(self, interval: float=1.0) -> None:
         '''Monitor all known tasks for run state.  Ensure that enabled tasks
-        are running, and that disabled tasks are stopped.  Should not be used
-        with Tasky.run_until_complete().'''
+        are running, and that disabled tasks are stopped.'''
 
         Log.debug('monitor running')
         while True:
@@ -255,7 +246,11 @@ class Tasky(object):
                 await asyncio.sleep(interval)
 
                 for name, task in self.all_tasks.items():
-                    if task.enabled:
+                    if self.terminate_on_finish:
+                        if task in self.running_tasks and task.running:
+                            await task.stop()
+
+                    elif task.enabled:
                         if task not in self.running_tasks:
                             Log.debug('task %s enabled, restarting', task.name)
                             await self.insert(task)
@@ -265,17 +260,25 @@ class Tasky(object):
                             Log.debug('task %s disabled, stopping', task.name)
                             await task.stop()
 
+                if self.terminate_on_finish and not self.running_tasks:
+                    Log.debug('all tasks completed, terminating')
+                    break
+
             except CancelledError:
                 Log.debug('monitor cancelled')
-                return
+                break
 
             except Exception:
                 Log.exception('monitoring exception')
+
+        self.monitor = None
+        self.loop.call_later(0, self.terminate)
 
     def exception(self, loop: asyncio.BaseEventLoop, context: dict) -> None:
         '''Log unhandled exceptions from anywhere in the event loop.'''
 
         Log.error('unhandled exception: %s', context['message'])
+        Log.error('%s', context)
         if 'exception' in context:
             Log.error('  %s', context['exception'])
 
