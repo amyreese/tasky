@@ -60,6 +60,7 @@ class Tasky(object):
         self.stats = stats
         self.executor = executor
 
+        self.monitor = False
         self.terminate_on_finish = False
         self.stop_attempts = 0
 
